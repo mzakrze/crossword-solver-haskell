@@ -64,7 +64,7 @@ crossFoundWords [] board = board
 crossFoundWords (w:restFoundWords) board = crossFoundWords restFoundWords (replace indexesToReplace board rowsNo colsNo)
             where 
                 replace :: [(Int, Int)] -> Board -> Int -> Int -> Board
-                replace toRepl board rowsNo colsNo = [([(if elem (row', col') toRepl then '-' else getLetter board row' col')  | row' <- [1..rowsNo]]) | col' <- [1..colsNo]]
+                replace toRepl board rowsNo colsNo = [([(if elem (row', col') toRepl then '-' else getLetter board row' col')  | col' <- [1..colsNo]]) | row' <- [1..rowsNo]]
                 indexesToReplace = wordsIndexes (row w) (col w) (length (word w)) (dir w)
                 wordsIndexes :: Int -> Int -> Int -> Direction -> [(Int, Int)]
                 wordsIndexes _ _ 0 _ = []
