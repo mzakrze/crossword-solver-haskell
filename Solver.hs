@@ -1,8 +1,10 @@
 module Solver where
     
 import Prelude hiding (Word)
+import System.IO.Unsafe
 
 type Word = [Char]
+type SecretWord = [Char]
 type Board = [[Char]]
 data FoundWord = FoundWord {row :: Int, col :: Int, dir :: Direction, word :: Word} deriving Show 
 data Direction = N | NE | E | SE | S | SW | W | NW deriving Show
@@ -24,12 +26,13 @@ newXY NW r c = (r-1,c-1)
 
 type FileName = [Char]
 ------------ Main function -----------
-solve wordsFileName boardFileName = printBoard solvedBoard
+solve wordsFileName boardFileName = secretWord -- printBoard solvedBoard -- FIXME printować: wykreśloną tablice, gdzie znaleziono słowa(??), secret word
                 where
                     board = readBoard boardFileName
                     words = readWords wordsFileName
                     foundWords = doSolve board words
-                    solvedBoard = crossFoundWords foundWords board
+                    solvedBoard = fst (crossFoundWords foundWords board)
+                    secretWord = "Secret word: " ++ (snd (crossFoundWords foundWords board))
 
 ------------- The algorithm ------------
 doSolve :: Board -> [Word] -> [FoundWord] -- TODO: przefiltrować słowa do sprawdzenia jesli juz je znaleziono
@@ -60,7 +63,10 @@ getLetter array row col = nth (nth array row) col
 
 
 
-crossFoundWords [] board = board
+crossFoundWords :: [FoundWord] -> Board -> (Board, SecretWord)
+crossFoundWords [] board = (board, secretWord)
+        where 
+            secretWord = filter (/='-') (foldl (++) "" board)
 crossFoundWords (w:restFoundWords) board = crossFoundWords restFoundWords (replace indexesToReplace board rowsNo colsNo)
             where 
                 replace :: [(Int, Int)] -> Board -> Int -> Int -> Board
@@ -73,15 +79,14 @@ crossFoundWords (w:restFoundWords) board = crossFoundWords restFoundWords (repla
                 colsNo = length (head board)                    
 
 ----------------------- IO --------------------
-readBoard :: FileName -> Board  -- FIXME mock
-readBoard filename = [
-    ['a', 'b', 'c', 'd'],
-    ['e', 'f', 'g', 'h'],
-    ['i', 'j', 'k', 'l']
-    ]
+readBoard :: FileName -> Board
+readBoard filename = doReadFromFile filename
 
-readWords :: FileName -> [Word] -- FIXME mock
-readWords filename = ["abcd", "aei", "afk", "lgb"]
+readWords :: FileName -> [Word]
+readWords filename = map (\str -> filter (\x -> x /= ' ' && x /= '-') str) (doReadFromFile filename)
+
+doReadFromFile :: FileName -> [String]
+doReadFromFile filename = split (=='\n') (unsafePerformIO . readFile $ filename) 
 
 printBoard :: Board -> IO [()] -- TODO jakiś smiec sie tam jeszcze printuje
 printBoard board = 
@@ -105,3 +110,8 @@ flatten xss = do
     x <- xs
     return x
 
+split     :: (Char -> Bool) -> String -> [String]
+split p s =  case dropWhile p s of
+                "" -> []
+                s' -> w : split p s''
+                    where (w, s'') = break p s'
