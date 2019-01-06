@@ -6,6 +6,7 @@ import System.IO.Unsafe
 type Word = [Char]
 type SecretWord = [Char]
 type Board = [[Char]]
+type GridXY = (Int, Int)
 data FoundWord = FoundWord {row :: Int, col :: Int, dir :: Direction, word :: Word} deriving Show 
 data Direction = N | NE | E | SE | S | SW | W | NW deriving Show
 
@@ -26,13 +27,14 @@ newXY NW r c = (r-1,c-1)
 
 type FileName = [Char]
 ------------ Main function -----------
-solve wordsFileName boardFileName = secretWord -- printBoard solvedBoard -- FIXME printować: wykreśloną tablice, gdzie znaleziono słowa(??), secret word
+solve wordsFileName boardFileName = print 
                 where
                     board = readBoard boardFileName
                     words = readWords wordsFileName
                     foundWords = doSolve board words
                     solvedBoard = fst (crossFoundWords foundWords board)
                     secretWord = "Secret word: " ++ (snd (crossFoundWords foundWords board))
+                    print = printBoard board foundWords secretWord 
 
 ------------- The algorithm ------------
 doSolve :: Board -> [Word] -> [FoundWord] -- TODO: przefiltrować słowa do sprawdzenia jesli juz je znaleziono
@@ -88,14 +90,37 @@ readWords filename = map (\str -> filter (\x -> x /= ' ' && x /= '-') str) (doRe
 doReadFromFile :: FileName -> [String]
 doReadFromFile filename = split (=='\n') (unsafePerformIO . readFile $ filename) 
 
-printBoard :: Board -> IO [()] -- TODO jakiś smiec sie tam jeszcze printuje
-printBoard board = 
-    sequence [putStrLn (getRow board line) | line <- [1..rowsNo]]
+printBoard :: Board -> [FoundWord] -> [Char] -> IO [()] -- TODO jakiś smiec sie tam jeszcze printuje
+printBoard board foundWords secretWord = 
+    sequence (concat [[putStrLn (getRow board line) | line <- [1..rowsNo]], [putStrLn (show word) | (id, word) <- zip [0..] foundWords], [putStrLn (show secretWord)]])
     where
         rowsNo = length board
+        wordsPositionsWithIndex = zip [0..] (map getFoundWordPositions foundWords)
+        
         getRow :: Board -> Int -> [Char]
-        getRow board r = [c | c <- nth board r]
+        getRow board r = concat [colorOutput [b] (getCharColor (c, r) wordsPositionsWithIndex)| (c, b) <- zip [1..] (nth board r)]
+                 
+        colorOutput :: [Char] -> Int -> [Char]
+        colorOutput c nr = "\x1b[" ++ show (30 + nr) ++ "m" ++ c ++ " " ++ "\x1b[0m"
 
+        getFoundWordPositions :: FoundWord -> [GridXY]
+        getFoundWordPositions (FoundWord row col N word)  = [(col,row-i)   | i <- [0..((length word) - 1)]]
+        getFoundWordPositions (FoundWord row col NE word) = [(col+i,row-i) | i <- [0..((length word) - 1)]] 
+        getFoundWordPositions (FoundWord row col E word)  = [(col+i,row)   | i <- [0..((length word) - 1)]] 
+        getFoundWordPositions (FoundWord row col SE word) = [(col+i,row+i) | i <- [0..((length word) - 1)]] 
+        getFoundWordPositions (FoundWord row col S word)  = [(col,row+i)   | i <- [0..((length word) - 1)]] 
+        getFoundWordPositions (FoundWord row col SW word) = [(col+i,row+i) | i <- [0..((length word) - 1)]]         
+        getFoundWordPositions (FoundWord row col W word)  = [(col+i,row)   | i <- [0..((length word) - 1)]] 
+        getFoundWordPositions (FoundWord row col NW word) = [(col+i,row-i) | i <- [0..((length word) - 1)]]   
+
+        getCharColor :: GridXY -> [(Int, [GridXY])] -> Int
+        getCharColor _ [] = 0
+        getCharColor gridXY ((nr, tab):rest) | (checkWord gridXY tab) == True = 1 + mod nr 6
+                                             | otherwise = getCharColor gridXY rest
+        checkWord :: GridXY -> [GridXY] -> Bool
+        checkWord _ [] = False
+        checkWord (x,y) ((x1,y1):rest) | x == x1 && y == y1 = True
+                                       | otherwise = checkWord (x,y) rest
     
 --------------- Util functions  --------------------
 
